@@ -8,6 +8,7 @@ require (
 	github.com/apparentlymart/go-cidr v1.0.1
 	github.com/aws/aws-sdk-go v1.16.26
 	github.com/certifi/gocertifi v0.0.0-20190905060710-a5e0173ced67 // indirect
+	github.com/coreos/rkt v1.30.0 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/fsouza/go-dockerclient v0.0.0-20171004212419-da3951ba2e9e
@@ -15,7 +16,6 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/google/cadvisor v0.35.1-0.20200116204205-4abc562912f0 // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
-	github.com/google/go-github v17.0.0+incompatible // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
