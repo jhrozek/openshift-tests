@@ -15,7 +15,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/google/cadvisor v0.35.1-0.20200116204205-4abc562912f0 // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
-	github.com/google/go-github v17.0.0+incompatible
+	github.com/google/go-github v17.0.0+incompatible // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible

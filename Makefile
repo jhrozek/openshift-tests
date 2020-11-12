@@ -2,9 +2,10 @@ all: build
 .PHONY: all
 
 OUT_DIR=bin
+GOFLAGS?=-mod=vendor
 build:
 	mkdir -p "${OUT_DIR}"
-	go build -o "${OUT_DIR}" "./cmd/extended-platform-tests"
+	go build $(GOFLAGS) -o "${OUT_DIR}" "./cmd/extended-platform-tests"
 
 # Include the library makefile
 include $(addprefix ./vendor/github.com/openshift/library-go/alpha-build-machinery/make/, \
