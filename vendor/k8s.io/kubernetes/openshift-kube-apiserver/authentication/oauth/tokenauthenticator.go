@@ -2,7 +2,11 @@ package oauth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
+	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kauthenticator "k8s.io/apiserver/pkg/authentication/authenticator"
@@ -16,28 +20,40 @@ import (
 var errLookup = errors.New("token lookup failed")
 
 type tokenAuthenticator struct {
-	tokens      oauthclient.OAuthAccessTokenInterface
-	users       userclient.UserInterface
-	groupMapper UserToGroupMapper
-	validators  OAuthTokenValidator
+	tokens       oauthclient.OAuthAccessTokenInterface
+	users        userclient.UserInterface
+	groupMapper  UserToGroupMapper
+	validators   OAuthTokenValidator
+	implicitAuds kauthenticator.Audiences
 }
 
-func NewTokenAuthenticator(tokens oauthclient.OAuthAccessTokenInterface, users userclient.UserInterface, groupMapper UserToGroupMapper, validators ...OAuthTokenValidator) kauthenticator.Token {
+func NewTokenAuthenticator(tokens oauthclient.OAuthAccessTokenInterface, users userclient.UserInterface, groupMapper UserToGroupMapper, implicitAuds kauthenticator.Audiences, validators ...OAuthTokenValidator) kauthenticator.Token {
 	return &tokenAuthenticator{
-		tokens:      tokens,
-		users:       users,
-		groupMapper: groupMapper,
-		validators:  OAuthTokenValidators(validators),
+		tokens:       tokens,
+		users:        users,
+		groupMapper:  groupMapper,
+		validators:   OAuthTokenValidators(validators),
+		implicitAuds: implicitAuds,
 	}
 }
 
+const sha256Prefix = "sha256~"
+
 func (a *tokenAuthenticator) AuthenticateToken(ctx context.Context, name string) (*kauthenticator.Response, bool, error) {
-	token, err := a.tokens.Get(name, metav1.GetOptions{})
+	// hash token for new-style sha256~ prefixed token
+	// TODO: reject non-sha256 prefix tokens in 4.7+
+	if strings.HasPrefix(name, sha256Prefix) {
+		withoutPrefix := strings.TrimPrefix(name, sha256Prefix)
+		h := sha256.Sum256([]byte(withoutPrefix))
+		name = sha256Prefix + base64.RawURLEncoding.EncodeToString(h[0:])
+	}
+
+	token, err := a.tokens.Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, false, errLookup // mask the error so we do not leak token data in logs
 	}
 
-	user, err := a.users.Get(token.UserName, metav1.GetOptions{})
+	user, err := a.users.Get(context.TODO(), token.UserName, metav1.GetOptions{})
 	if err != nil {
 		return nil, false, err
 	}
@@ -55,6 +71,18 @@ func (a *tokenAuthenticator) AuthenticateToken(ctx context.Context, name string)
 		groupNames = append(groupNames, group.Name)
 	}
 
+	tokenAudiences := a.implicitAuds
+	requestedAudiences, ok := kauthenticator.AudiencesFrom(ctx)
+	if !ok {
+		// default to apiserver audiences
+		requestedAudiences = a.implicitAuds
+	}
+
+	auds := kauthenticator.Audiences(tokenAudiences).Intersect(requestedAudiences)
+	if len(auds) == 0 && len(a.implicitAuds) != 0 {
+		return nil, false, fmt.Errorf("token audiences %q is invalid for the target audiences %q", tokenAudiences, requestedAudiences)
+	}
+
 	return &kauthenticator.Response{
 		User: &kuser.DefaultInfo{
 			Name:   user.Name,
@@ -64,5 +92,6 @@ func (a *tokenAuthenticator) AuthenticateToken(ctx context.Context, name string)
 				authorizationv1.ScopesKey: token.Scopes,
 			},
 		},
+		Audiences: auds,
 	}, true, nil
 }

@@ -8,7 +8,7 @@ build:
 	go build $(GOFLAGS) -o "${OUT_DIR}" "./cmd/extended-platform-tests"
 
 # Include the library makefile
-include $(addprefix ./vendor/github.com/openshift/library-go/alpha-build-machinery/make/, \
+include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	targets/openshift/bindata.mk \
 	targets/openshift/images.mk \
 	targets/openshift/deps.mk \

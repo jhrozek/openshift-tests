@@ -2,6 +2,10 @@ package oauth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,21 +21,31 @@ import (
 const ClusterAdminGroup = "system:cluster-admins"
 
 type bootstrapAuthenticator struct {
-	tokens    oauthclient.OAuthAccessTokenInterface
-	getter    bootstrap.BootstrapUserDataGetter
-	validator OAuthTokenValidator
+	tokens            oauthclient.OAuthAccessTokenInterface
+	getter            bootstrap.BootstrapUserDataGetter
+	validator         OAuthTokenValidator
+	implicitAudiences kauthenticator.Audiences
 }
 
-func NewBootstrapAuthenticator(tokens oauthclient.OAuthAccessTokenInterface, getter bootstrap.BootstrapUserDataGetter, validators ...OAuthTokenValidator) kauthenticator.Token {
+func NewBootstrapAuthenticator(tokens oauthclient.OAuthAccessTokenInterface, getter bootstrap.BootstrapUserDataGetter, implicitAudiences kauthenticator.Audiences, validators ...OAuthTokenValidator) kauthenticator.Token {
 	return &bootstrapAuthenticator{
-		tokens:    tokens,
-		getter:    getter,
-		validator: OAuthTokenValidators(validators),
+		tokens:            tokens,
+		getter:            getter,
+		validator:         OAuthTokenValidators(validators),
+		implicitAudiences: implicitAudiences,
 	}
 }
 
 func (a *bootstrapAuthenticator) AuthenticateToken(ctx context.Context, name string) (*kauthenticator.Response, bool, error) {
-	token, err := a.tokens.Get(name, metav1.GetOptions{})
+	// hash token for new-style sha256~ prefixed token
+	// TODO: reject non-sha256 prefix tokens in 4.7+
+	if strings.HasPrefix(name, sha256Prefix) {
+		withoutPrefix := strings.TrimPrefix(name, sha256Prefix)
+		h := sha256.Sum256([]byte(withoutPrefix))
+		name = sha256Prefix + base64.RawURLEncoding.EncodeToString(h[0:])
+	}
+
+	token, err := a.tokens.Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, false, errLookup // mask the error so we do not leak token data in logs
 	}
@@ -58,8 +72,21 @@ func (a *bootstrapAuthenticator) AuthenticateToken(ctx context.Context, name str
 		return nil, false, err
 	}
 
+	tokenAudiences := a.implicitAudiences
+	requestedAudiences, ok := kauthenticator.AudiencesFrom(ctx)
+	if !ok {
+		// default to apiserver audiences
+		requestedAudiences = a.implicitAudiences
+	}
+
+	auds := kauthenticator.Audiences(tokenAudiences).Intersect(requestedAudiences)
+	if len(auds) == 0 && len(a.implicitAudiences) != 0 {
+		return nil, false, fmt.Errorf("token audiences %q is invalid for the target audiences %q", tokenAudiences, requestedAudiences)
+	}
+
 	// we explicitly do not set UID as we do not want to leak any derivative of the password
 	return &kauthenticator.Response{
+		Audiences: auds,
 		User: &kuser.DefaultInfo{
 			Name: bootstrap.BootstrapUser,
 			// we cannot use SystemPrivilegedGroup because it cannot be properly scoped.

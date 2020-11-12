@@ -1,11 +1,12 @@
 package oauth
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/clock"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -132,7 +133,7 @@ func (a *TimeoutValidator) update(td *tokenData) error {
 	}
 	// We need to get the token again here because it may have changed in the
 	// DB and we need to verify it is still worth updating
-	token, err := a.tokens.Get(td.token.Name, v1.GetOptions{})
+	token, err := a.tokens.Get(context.TODO(), td.token.Name, v1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -142,7 +143,7 @@ func (a *TimeoutValidator) update(td *tokenData) error {
 		return nil
 	}
 	token.InactivityTimeoutSeconds = newTimeout
-	_, err = a.tokens.Update(token)
+	_, err = a.tokens.Update(context.TODO(), token, v1.UpdateOptions{})
 	return err
 }
 

@@ -19,6 +19,7 @@ package common
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/events"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
+	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	imageutils "k8s.io/kubernetes/test/utils/image"
 	"k8s.io/utils/pointer"
 
@@ -73,7 +75,7 @@ var _ = framework.KubeDescribe("Security Context", func() {
 		}
 
 		/*
-			Release : v1.15
+			Release: v1.15
 			Testname: Security Context, runAsUser=65534
 			Description: Container is created with runAsUser option by passing uid 65534 to run as unpriviledged user. Pod MUST be in Succeeded phase.
 			[LinuxOnly]: This test is marked as LinuxOnly since Windows does not support running as UID / GID.
@@ -83,7 +85,7 @@ var _ = framework.KubeDescribe("Security Context", func() {
 		})
 
 		/*
-			Release : v1.15
+			Release: v1.15
 			Testname: Security Context, runAsUser=0
 			Description: Container is created with runAsUser option by passing uid 0 to run as root priviledged user. Pod MUST be in Succeeded phase.
 			This e2e can not be promoted to Conformance because a Conformant platform may not allow to run containers with 'uid 0' or running privileged operations.
@@ -121,7 +123,7 @@ var _ = framework.KubeDescribe("Security Context", func() {
 
 		ginkgo.It("should run with an explicit non-root user ID [LinuxOnly]", func() {
 			// creates a pod with RunAsUser, which is not supported on Windows.
-			framework.SkipIfNodeOSDistroIs("windows")
+			e2eskipper.SkipIfNodeOSDistroIs("windows")
 			name := "explicit-nonroot-uid"
 			pod := makeNonRootPod(name, rootImage, pointer.Int64Ptr(nonRootTestUserID))
 			podClient.Create(pod)
@@ -131,7 +133,7 @@ var _ = framework.KubeDescribe("Security Context", func() {
 		})
 		ginkgo.It("should not run with an explicit root user ID [LinuxOnly]", func() {
 			// creates a pod with RunAsUser, which is not supported on Windows.
-			framework.SkipIfNodeOSDistroIs("windows")
+			e2eskipper.SkipIfNodeOSDistroIs("windows")
 			name := "explicit-root-uid"
 			pod := makeNonRootPod(name, nonRootImage, pointer.Int64Ptr(0))
 			pod = podClient.Create(pod)
@@ -191,7 +193,7 @@ var _ = framework.KubeDescribe("Security Context", func() {
 			))
 
 			if readOnlyRootFilesystem {
-				podClient.WaitForFailure(podName, framework.PodStartTimeout)
+				waitForFailure(f, podName, framework.PodStartTimeout)
 			} else {
 				podClient.WaitForSuccess(podName, framework.PodStartTimeout)
 			}
@@ -200,7 +202,7 @@ var _ = framework.KubeDescribe("Security Context", func() {
 		}
 
 		/*
-			Release : v1.15
+			Release: v1.15
 			Testname: Security Context, readOnlyRootFilesystem=true.
 			Description: Container is configured to run with readOnlyRootFilesystem to true which will force containers to run with a read only root file system.
 			Write operation MUST NOT be allowed and Pod MUST be in Failed state.
@@ -212,7 +214,7 @@ var _ = framework.KubeDescribe("Security Context", func() {
 		})
 
 		/*
-			Release : v1.15
+			Release: v1.15
 			Testname: Security Context, readOnlyRootFilesystem=false.
 			Description: Container is configured to run with readOnlyRootFilesystem to false.
 			Write operation MUST be allowed and Pod MUST be in Succeeded state.
@@ -254,7 +256,7 @@ var _ = framework.KubeDescribe("Security Context", func() {
 			return podName
 		}
 		/*
-			Release : v1.15
+			Release: v1.15
 			Testname: Security Context, privileged=false.
 			Description: Create a container to run in unprivileged mode by setting pod's SecurityContext Privileged option as false. Pod MUST be in Succeeded phase.
 			[LinuxOnly]: This test is marked as LinuxOnly since it runs a Linux-specific command.
@@ -317,7 +319,7 @@ var _ = framework.KubeDescribe("Security Context", func() {
 		}
 
 		/*
-			Release : v1.15
+			Release: v1.15
 			Testname: Security Context, allowPrivilegeEscalation unset, uid != 0.
 			Description: Configuring the allowPrivilegeEscalation unset, allows the privilege escalation operation.
 			A container is configured with allowPrivilegeEscalation not specified (nil) and a given uid which is not 0.
@@ -333,7 +335,7 @@ var _ = framework.KubeDescribe("Security Context", func() {
 		})
 
 		/*
-			Release : v1.15
+			Release: v1.15
 			Testname: Security Context, allowPrivilegeEscalation=false.
 			Description: Configuring the allowPrivilegeEscalation to false, does not allow the privilege escalation operation.
 			A container is configured with allowPrivilegeEscalation=false and a given uid (1000) which is not 0.
@@ -349,7 +351,7 @@ var _ = framework.KubeDescribe("Security Context", func() {
 		})
 
 		/*
-			Release : v1.15
+			Release: v1.15
 			Testname: Security Context, allowPrivilegeEscalation=true.
 			Description: Configuring the allowPrivilegeEscalation to true, allows the privilege escalation operation.
 			A container is configured with allowPrivilegeEscalation=true and a given uid (1000) which is not 0.
@@ -366,3 +368,19 @@ var _ = framework.KubeDescribe("Security Context", func() {
 		})
 	})
 })
+
+// waitForFailure waits for pod to fail.
+func waitForFailure(f *framework.Framework, name string, timeout time.Duration) {
+	gomega.Expect(e2epod.WaitForPodCondition(f.ClientSet, f.Namespace.Name, name, fmt.Sprintf("%s or %s", v1.PodSucceeded, v1.PodFailed), timeout,
+		func(pod *v1.Pod) (bool, error) {
+			switch pod.Status.Phase {
+			case v1.PodFailed:
+				return true, nil
+			case v1.PodSucceeded:
+				return true, fmt.Errorf("pod %q successed with reason: %q, message: %q", name, pod.Status.Reason, pod.Status.Message)
+			default:
+				return false, nil
+			}
+		},
+	)).To(gomega.Succeed(), "wait for pod %q to fail", name)
+}

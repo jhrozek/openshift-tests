@@ -17,6 +17,7 @@ limitations under the License.
 package apps
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -26,7 +27,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
@@ -34,7 +35,9 @@ import (
 	batchinternal "k8s.io/kubernetes/pkg/apis/batch"
 	"k8s.io/kubernetes/pkg/controller/job"
 	"k8s.io/kubernetes/test/e2e/framework"
-	jobutil "k8s.io/kubernetes/test/e2e/framework/job"
+	e2ejob "k8s.io/kubernetes/test/e2e/framework/job"
+	e2eresource "k8s.io/kubernetes/test/e2e/framework/resource"
+	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	imageutils "k8s.io/kubernetes/test/utils/image"
 )
 
@@ -53,7 +56,7 @@ var _ = SIGDescribe("CronJob", func() {
 	failureCommand := []string{"/bin/false"}
 
 	ginkgo.BeforeEach(func() {
-		framework.SkipIfMissingResource(f.DynamicClient, CronJobGroupVersionResourceBeta, f.Namespace.Name)
+		e2eskipper.SkipIfMissingResource(f.DynamicClient, CronJobGroupVersionResourceBeta, f.Namespace.Name)
 	})
 
 	// multiple jobs running at once
@@ -69,7 +72,7 @@ var _ = SIGDescribe("CronJob", func() {
 		framework.ExpectNoError(err, "Failed to wait for active jobs in CronJob %s in namespace %s", cronJob.Name, f.Namespace.Name)
 
 		ginkgo.By("Ensuring at least two running jobs exists by listing jobs explicitly")
-		jobs, err := f.ClientSet.BatchV1().Jobs(f.Namespace.Name).List(metav1.ListOptions{})
+		jobs, err := f.ClientSet.BatchV1().Jobs(f.Namespace.Name).List(context.TODO(), metav1.ListOptions{})
 		framework.ExpectNoError(err, "Failed to list the CronJobs in namespace %s", f.Namespace.Name)
 		activeJobs, _ := filterActiveJobs(jobs)
 		gomega.Expect(len(activeJobs)).To(gomega.BeNumerically(">=", 2))
@@ -94,7 +97,7 @@ var _ = SIGDescribe("CronJob", func() {
 		framework.ExpectError(err)
 
 		ginkgo.By("Ensuring no job exists by listing jobs explicitly")
-		jobs, err := f.ClientSet.BatchV1().Jobs(f.Namespace.Name).List(metav1.ListOptions{})
+		jobs, err := f.ClientSet.BatchV1().Jobs(f.Namespace.Name).List(context.TODO(), metav1.ListOptions{})
 		framework.ExpectNoError(err, "Failed to list the CronJobs in namespace %s", f.Namespace.Name)
 		gomega.Expect(jobs.Items).To(gomega.HaveLen(0))
 
@@ -121,7 +124,7 @@ var _ = SIGDescribe("CronJob", func() {
 		gomega.Expect(cronJob.Status.Active).Should(gomega.HaveLen(1))
 
 		ginkgo.By("Ensuring exactly one running job exists by listing jobs explicitly")
-		jobs, err := f.ClientSet.BatchV1().Jobs(f.Namespace.Name).List(metav1.ListOptions{})
+		jobs, err := f.ClientSet.BatchV1().Jobs(f.Namespace.Name).List(context.TODO(), metav1.ListOptions{})
 		framework.ExpectNoError(err, "Failed to list the CronJobs in namespace %s", f.Namespace.Name)
 		activeJobs, _ := filterActiveJobs(jobs)
 		gomega.Expect(activeJobs).To(gomega.HaveLen(1))
@@ -153,7 +156,7 @@ var _ = SIGDescribe("CronJob", func() {
 		gomega.Expect(cronJob.Status.Active).Should(gomega.HaveLen(1))
 
 		ginkgo.By("Ensuring exactly one running job exists by listing jobs explicitly")
-		jobs, err := f.ClientSet.BatchV1().Jobs(f.Namespace.Name).List(metav1.ListOptions{})
+		jobs, err := f.ClientSet.BatchV1().Jobs(f.Namespace.Name).List(context.TODO(), metav1.ListOptions{})
 		framework.ExpectNoError(err, "Failed to list the jobs in namespace %s", f.Namespace.Name)
 		activeJobs, _ := filterActiveJobs(jobs)
 		gomega.Expect(activeJobs).To(gomega.HaveLen(1))
@@ -209,12 +212,12 @@ var _ = SIGDescribe("CronJob", func() {
 
 		ginkgo.By("Deleting the job")
 		job := cronJob.Status.Active[0]
-		framework.ExpectNoError(framework.DeleteResourceAndWaitForGC(f.ClientSet, batchinternal.Kind("Job"), f.Namespace.Name, job.Name))
+		framework.ExpectNoError(e2eresource.DeleteResourceAndWaitForGC(f.ClientSet, batchinternal.Kind("Job"), f.Namespace.Name, job.Name))
 
 		ginkgo.By("Ensuring job was deleted")
-		_, err = jobutil.GetJob(f.ClientSet, f.Namespace.Name, job.Name)
+		_, err = e2ejob.GetJob(f.ClientSet, f.Namespace.Name, job.Name)
 		framework.ExpectError(err)
-		framework.ExpectEqual(errors.IsNotFound(err), true)
+		framework.ExpectEqual(apierrors.IsNotFound(err), true)
 
 		ginkgo.By("Ensuring the job is not in the cronjob active list")
 		err = waitForJobNotActive(f.ClientSet, f.Namespace.Name, cronJob.Name, job.Name)
@@ -265,7 +268,7 @@ func ensureHistoryLimits(c clientset.Interface, ns string, cronJob *batchv1beta1
 	framework.ExpectNoError(err, "Failed to ensure a finished cronjob exists in namespace %s", ns)
 
 	ginkgo.By("Ensuring a finished job exists by listing jobs explicitly")
-	jobs, err := c.BatchV1().Jobs(ns).List(metav1.ListOptions{})
+	jobs, err := c.BatchV1().Jobs(ns).List(context.TODO(), metav1.ListOptions{})
 	framework.ExpectNoError(err, "Failed to ensure a finished cronjob exists by listing jobs explicitly in namespace %s", ns)
 	activeJobs, finishedJobs := filterActiveJobs(jobs)
 	if len(finishedJobs) != 1 {
@@ -281,7 +284,7 @@ func ensureHistoryLimits(c clientset.Interface, ns string, cronJob *batchv1beta1
 	framework.ExpectNoError(err, "Failed to ensure that pods for job does not exists anymore in namespace %s", ns)
 
 	ginkgo.By("Ensuring there is 1 finished job by listing jobs explicitly")
-	jobs, err = c.BatchV1().Jobs(ns).List(metav1.ListOptions{})
+	jobs, err = c.BatchV1().Jobs(ns).List(context.TODO(), metav1.ListOptions{})
 	framework.ExpectNoError(err, "Failed to ensure there is one finished job by listing job explicitly in namespace %s", ns)
 	activeJobs, finishedJobs = filterActiveJobs(jobs)
 	if len(finishedJobs) != 1 {
@@ -353,16 +356,16 @@ func newTestCronJob(name, schedule string, concurrencyPolicy batchv1beta1.Concur
 }
 
 func createCronJob(c clientset.Interface, ns string, cronJob *batchv1beta1.CronJob) (*batchv1beta1.CronJob, error) {
-	return c.BatchV1beta1().CronJobs(ns).Create(cronJob)
+	return c.BatchV1beta1().CronJobs(ns).Create(context.TODO(), cronJob, metav1.CreateOptions{})
 }
 
 func getCronJob(c clientset.Interface, ns, name string) (*batchv1beta1.CronJob, error) {
-	return c.BatchV1beta1().CronJobs(ns).Get(name, metav1.GetOptions{})
+	return c.BatchV1beta1().CronJobs(ns).Get(context.TODO(), name, metav1.GetOptions{})
 }
 
 func deleteCronJob(c clientset.Interface, ns, name string) error {
 	propagationPolicy := metav1.DeletePropagationBackground // Also delete jobs and pods related to cronjob
-	return c.BatchV1beta1().CronJobs(ns).Delete(name, &metav1.DeleteOptions{PropagationPolicy: &propagationPolicy})
+	return c.BatchV1beta1().CronJobs(ns).Delete(context.TODO(), name, metav1.DeleteOptions{PropagationPolicy: &propagationPolicy})
 }
 
 // Wait for at least given amount of active jobs.
@@ -414,7 +417,7 @@ func waitForJobNotActive(c clientset.Interface, ns, cronJobName, jobName string)
 // Wait for a job to disappear by listing them explicitly.
 func waitForJobToDisappear(c clientset.Interface, ns string, targetJob *batchv1.Job) error {
 	return wait.Poll(framework.Poll, cronJobTimeout, func() (bool, error) {
-		jobs, err := c.BatchV1().Jobs(ns).List(metav1.ListOptions{})
+		jobs, err := c.BatchV1().Jobs(ns).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -432,7 +435,7 @@ func waitForJobToDisappear(c clientset.Interface, ns string, targetJob *batchv1.
 func waitForJobsPodToDisappear(c clientset.Interface, ns string, targetJob *batchv1.Job) error {
 	return wait.Poll(framework.Poll, cronJobTimeout, func() (bool, error) {
 		options := metav1.ListOptions{LabelSelector: fmt.Sprintf("controller-uid=%s", targetJob.UID)}
-		pods, err := c.CoreV1().Pods(ns).List(options)
+		pods, err := c.CoreV1().Pods(ns).List(context.TODO(), options)
 		if err != nil {
 			return false, err
 		}
@@ -443,14 +446,14 @@ func waitForJobsPodToDisappear(c clientset.Interface, ns string, targetJob *batc
 // Wait for a job to be replaced with a new one.
 func waitForJobReplaced(c clientset.Interface, ns, previousJobName string) error {
 	return wait.Poll(framework.Poll, cronJobTimeout, func() (bool, error) {
-		jobs, err := c.BatchV1().Jobs(ns).List(metav1.ListOptions{})
+		jobs, err := c.BatchV1().Jobs(ns).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return false, err
 		}
 		// Ignore Jobs pending deletion, since deletion of Jobs is now asynchronous.
 		aliveJobs := filterNotDeletedJobs(jobs)
 		if len(aliveJobs) > 1 {
-			return false, fmt.Errorf("More than one job is running %+v", jobs.Items)
+			return false, fmt.Errorf("more than one job is running %+v", jobs.Items)
 		} else if len(aliveJobs) == 0 {
 			framework.Logf("Warning: Found 0 jobs in namespace %v", ns)
 			return false, nil
@@ -462,7 +465,7 @@ func waitForJobReplaced(c clientset.Interface, ns, previousJobName string) error
 // waitForJobsAtLeast waits for at least a number of jobs to appear.
 func waitForJobsAtLeast(c clientset.Interface, ns string, atLeast int) error {
 	return wait.Poll(framework.Poll, cronJobTimeout, func() (bool, error) {
-		jobs, err := c.BatchV1().Jobs(ns).List(metav1.ListOptions{})
+		jobs, err := c.BatchV1().Jobs(ns).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -473,7 +476,7 @@ func waitForJobsAtLeast(c clientset.Interface, ns string, atLeast int) error {
 // waitForAnyFinishedJob waits for any completed job to appear.
 func waitForAnyFinishedJob(c clientset.Interface, ns string) error {
 	return wait.Poll(framework.Poll, cronJobTimeout, func() (bool, error) {
-		jobs, err := c.BatchV1().Jobs(ns).List(metav1.ListOptions{})
+		jobs, err := c.BatchV1().Jobs(ns).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return false, err
 		}

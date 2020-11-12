@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -163,7 +163,7 @@ func getNamespaceByName(name string, ns *corev1.Namespace, client kubernetes.Int
 	if ns != nil && name == ns.Name {
 		return ns, nil
 	}
-	return client.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
+	return client.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
 }
 
 // CreateProvidersFromConstraints creates providers from the constraints supplied, including

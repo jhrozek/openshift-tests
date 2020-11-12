@@ -52,7 +52,6 @@ require (
 	github.com/mattn/go-shellwords v1.0.10 // indirect
 	github.com/mesos/mesos-go v0.0.11 // indirect
 	github.com/mindprince/gonvml v0.0.0-20190828220739-9ebdce4bb989 // indirect
-	github.com/mistifyio/go-zfs v2.1.1+incompatible // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/onsi/ginkgo v4.5.0-origin.1+incompatible
 	github.com/onsi/gomega v1.7.0
@@ -106,7 +105,9 @@ require (
 
 replace (
 	bitbucket.org/ww/goautoneg => github.com/munnerz/goautoneg v0.0.0-20120707110453-a547fc61f48d
-	github.com/google/cadvisor => github.com/openshift/google-cadvisor v0.33.2-0.20190902063809-4db825a8ad0d
+
+	github.com/google/cadvisor => github.com/google/cadvisor v0.37.0
+	github.com/karrick/godirwalk => github.com/karrick/godirwalk v1.7.5
 
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.4.1
 
@@ -126,7 +127,7 @@ replace (
 	k8s.io/component-base => k8s.io/component-base v0.19.2
 	k8s.io/cri-api => k8s.io/cri-api v0.19.2
 	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.19.2
-	k8s.io/kube-aggregator => github.com/openshift/kubernetes-kube-aggregator v0.0.0-20191209133208-1e3c0eec4d61
+	k8s.io/kube-aggregator => github.com/openshift/kubernetes/staging/src/k8s.io/kube-aggregator v0.0.0-20201103091224-6bd0f342e442
 	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.19.2
 	k8s.io/kube-proxy => k8s.io/kube-proxy v0.19.2
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.19.2
@@ -137,4 +138,6 @@ replace (
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.19.2
 	k8s.io/metrics => k8s.io/metrics v0.19.2
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.19.2
+
+	google.golang.org/grpc => google.golang.org/grpc v1.26.0
 )
