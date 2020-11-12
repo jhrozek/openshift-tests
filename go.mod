@@ -114,7 +114,6 @@ replace (
 	github.com/googleapis/gnostic/OpenAPIv2 => github.com/googleapis/gnostic/openapiv2 v0.4.1
 	github.com/jteeuwen/go-bindata => github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
 	github.com/onsi/ginkgo => github.com/openshift/onsi-ginkgo v1.4.1-0.20190902091932-d0603c19fe78
-	github.com/openshift/api => github.com/openshift/api v0.0.0-20200117162508-e7ccdda6ba67
 	k8s.io/api => k8s.io/api v0.19.2
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.19.2
 	k8s.io/apimachinery => k8s.io/apimachinery v0.19.2
