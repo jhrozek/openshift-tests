@@ -43,7 +43,7 @@ var _ = g.Describe("[cli] oc adm must-gather", func() {
 			RedirectURI: "https://127.0.0.1:12000/oauth/token/implicit",
 			UserName:    "a",
 			UserUID:     "1",
-		})
+		}, metav1.CreateOptions{})
 		o.Expect(err1).ToNot(o.HaveOccurred())
 		_, err2 := oauthClient.OAuthAuthorizeTokens().Create(context.Background(), &oauthv1.OAuthAuthorizeToken{
 			ObjectMeta: metav1.ObjectMeta{
@@ -55,7 +55,7 @@ var _ = g.Describe("[cli] oc adm must-gather", func() {
 			RedirectURI: "https://127.0.0.1:12000/oauth/token/implicit",
 			UserName:    "a",
 			UserUID:     "1",
-		})
+		}, metav1.CreateOptions{})
 		o.Expect(err2).ToNot(o.HaveOccurred())
 		// let audit log writes occurs to disk (best effort, should be enough to make the test fail most of the time)
 		time.Sleep(10 * time.Second)

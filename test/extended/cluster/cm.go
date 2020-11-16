@@ -9,7 +9,7 @@ import (
 
 	g "github.com/onsi/ginkgo"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclientset "k8s.io/client-go/kubernetes"
 	reale2e "k8s.io/kubernetes/test/e2e"

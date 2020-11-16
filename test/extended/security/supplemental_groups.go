@@ -1,6 +1,7 @@
 package security
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/retry"
 	e2e "k8s.io/kubernetes/test/e2e/framework"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 
 	exutil "github.com/openshift/openshift-tests/test/extended/util"
 )
@@ -52,21 +54,21 @@ var _ = g.Describe("[security] supplemental groups", func() {
 			// so that we can check for the exact values later and not rely on SCC allocation.
 			g.By("creating a pod that requests supplemental groups")
 			submittedPod := supGroupPod(fsGroup, supGroup)
-			_, err = f.ClientSet.CoreV1().Pods(f.Namespace.Name).Create(submittedPod)
+			_, err = f.ClientSet.CoreV1().Pods(f.Namespace.Name).Create(context.Background(), submittedPod, metav1.CreateOptions{})
 			o.Expect(err).NotTo(o.HaveOccurred())
-			defer f.ClientSet.CoreV1().Pods(f.Namespace.Name).Delete(submittedPod.Name, nil)
+			defer f.ClientSet.CoreV1().Pods(f.Namespace.Name).Delete(context.Background(), submittedPod.Name, metav1.DeleteOptions{})
 
 			// we should have been admitted with the groups that we requested but if for any
 			// reason they are different we will fail.
 			g.By("retrieving the pod and ensuring groups are set")
-			retrievedPod, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).Get(submittedPod.Name, metav1.GetOptions{})
+			retrievedPod, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).Get(context.Background(), submittedPod.Name, metav1.GetOptions{})
 			o.Expect(err).NotTo(o.HaveOccurred())
 			o.Expect(*retrievedPod.Spec.SecurityContext.FSGroup).To(o.Equal(*submittedPod.Spec.SecurityContext.FSGroup))
 			o.Expect(retrievedPod.Spec.SecurityContext.SupplementalGroups).To(o.Equal(submittedPod.Spec.SecurityContext.SupplementalGroups))
 
 			// wait for the pod to run so we can inspect it.
 			g.By("waiting for the pod to become running")
-			err = f.WaitForPodRunning(submittedPod.Name)
+			err = e2epod.WaitForPodNameRunningInNamespace(f.ClientSet, submittedPod.Name, f.Namespace.Name)
 			o.Expect(err).NotTo(o.HaveOccurred())
 
 			out, stderr, err := oc.Run("exec").Args("-p", supplementalGroupsPod, "--", "/usr/bin/id", "-G").Outputs()

@@ -12,6 +12,7 @@ import (
 	o "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -824,13 +825,14 @@ var _ = g.Describe("[Feature:DeploymentConfig] deploymentconfigs", func() {
 			dc, err = oc.AppsClient().AppsV1().DeploymentConfigs(oc.Namespace()).Patch(context.Background(), dcName, types.StrategicMergePatchType, []byte(`{"spec": {"paused": true}}`), metav1.PatchOptions{})
 			o.Expect(err).NotTo(o.HaveOccurred())
 
-			_, err = waitForDCModification(oc, dc.Namespace, dcName, deploymentChangeTimeout,
-				dc.GetResourceVersion(), func(config *appsv1.DeploymentConfig) (bool, error) {
-					if config.Status.ObservedGeneration >= dc.Generation {
-						return true, nil
-					}
-					return false, nil
-				})
+			ctx, cancel := context.WithTimeout(context.Background(), deploymentChangeTimeout)
+			defer cancel()
+			_, err = waitForDCModification(ctx, oc.AppsClient().AppsV1(), dc.Namespace, dcName, dc.GetResourceVersion(), func(config *appsv1.DeploymentConfig) (bool, error) {
+				if config.Status.ObservedGeneration >= dc.Generation {
+					return true, nil
+				}
+				return false, nil
+			})
 			o.Expect(err).NotTo(o.HaveOccurred(), fmt.Sprintf("failed to wait on generation >= %d to be observed by DC %s/%s", dc.Generation, dc.Namespace, dcName))
 		})
 	})
@@ -1040,7 +1042,7 @@ var _ = g.Describe("[Feature:DeploymentConfig] deploymentconfigs", func() {
 
 			rcName := func(i int) string { return fmt.Sprintf("%s-%d", dc.Name, i) }
 			namespace := oc.Namespace()
-			watcher, err := oc.KubeClient().CoreV1().ReplicationControllers(namespace).Watch(metav1.SingleObject(metav1.ObjectMeta{Name: rcName(1), ResourceVersion: ""}))
+			_, err := oc.KubeClient().CoreV1().ReplicationControllers(namespace).Watch(context.Background(), metav1.SingleObject(metav1.ObjectMeta{Name: rcName(1), ResourceVersion: ""}))
 			o.Expect(err).NotTo(o.HaveOccurred())
 
 			o.Expect(dc.Spec.Triggers).To(o.BeNil())
@@ -1052,7 +1054,7 @@ var _ = g.Describe("[Feature:DeploymentConfig] deploymentconfigs", func() {
 			g.By("verifying that all pods are ready")
 			ctx1, ctx1Cancel := context.WithTimeout(context.Background(), deploymentRunTimeout)
 			defer ctx1Cancel()
-			rc1, err = waitForRCState(ctx1, oc.KubeClient().CoreV1(), namespace, rcName(1), func(rc *corev1.ReplicationController) (bool, error) {
+			rc1, err := waitForRCState(ctx1, oc.KubeClient().CoreV1(), namespace, rcName(1), func(rc *corev1.ReplicationController) (bool, error) {
 				return rc.Status.ReadyReplicas == dc.Spec.Replicas, nil
 			})
 			o.Expect(err).NotTo(o.HaveOccurred())
@@ -1161,7 +1163,7 @@ var _ = g.Describe("[Feature:DeploymentConfig] deploymentconfigs", func() {
 			var err error
 
 			g.By("should create ControllerRef in RCs it creates", func() {
-				dc := ReadFixtureOrFail(simpleDeploymentFixture).(*appsv1.DeploymentConfig)
+				dc := exutil.ReadFixtureOrFail(simpleDeploymentFixture).(*appsv1.DeploymentConfig)
 				// Having more replicas will make us more resilient to pod failures
 				dc.Spec.Replicas = 3
 				dc, err = oc.AppsClient().AppsV1().DeploymentConfigs(namespace).Create(context.Background(), dc, metav1.CreateOptions{})
@@ -1429,10 +1431,24 @@ var _ = g.Describe("[Feature:DeploymentConfig] deploymentconfigs", func() {
 			rcName := appsutil.LatestDeploymentNameForConfigAndVersion(dc.Name, dc.Status.LatestVersion)
 
 			g.By("waiting for deployer to be completed")
-			_, err = waitForPodModification(oc, namespace,
-				appsutil.DeployerPodNameForDeployment(rcName),
-				deploymentRunTimeout, "",
-				func(pod *corev1.Pod) (bool, error) {
+			podName := appsutil.DeployerPodNameForDeployment(rcName)
+			ctx, cancel := context.WithTimeout(context.Background(), deploymentRunTimeout)
+			defer cancel()
+			fieldSelector := fields.OneTermEqualSelector("metadata.name", podName).String()
+			lw := &cache.ListWatch{
+				ListFunc: func(options metav1.ListOptions) (object runtime.Object, e error) {
+					options.FieldSelector = fieldSelector
+					return oc.KubeClient().CoreV1().Pods(namespace).List(ctx, options)
+				},
+				WatchFunc: func(options metav1.ListOptions) (i watch.Interface, e error) {
+					options.FieldSelector = fieldSelector
+					return oc.KubeClient().CoreV1().Pods(namespace).Watch(ctx, options)
+				},
+			}
+			_, err = watchtools.UntilWithSync(ctx, lw, &corev1.Pod{}, nil, func(e watch.Event) (bool, error) {
+				switch e.Type {
+				case watch.Added, watch.Modified:
+					pod := e.Object.(*corev1.Pod)
 					switch pod.Status.Phase {
 					case corev1.PodSucceeded:
 						return true, nil
@@ -1441,16 +1457,20 @@ var _ = g.Describe("[Feature:DeploymentConfig] deploymentconfigs", func() {
 					default:
 						return false, nil
 					}
-				})
+				default:
+					return true, fmt.Errorf("unexpected event %#v", e)
+				}
+			})
 			o.Expect(err).NotTo(o.HaveOccurred())
 
 			g.By("canceling the deployment")
 			rc, err := oc.KubeClient().CoreV1().ReplicationControllers(namespace).Patch(
+				context.Background(),
 				rcName, types.StrategicMergePatchType,
 				[]byte(fmt.Sprintf(`{"metadata":{"annotations":{%q: %q, %q: %q}}}`,
 					deploymentCancelledAnnotation, "true",
 					deploymentStatusReasonAnnotation, "cancelled by the user",
-				)))
+				)), metav1.PatchOptions{})
 			o.Expect(err).NotTo(o.HaveOccurred())
 			o.Expect(appsutil.DeploymentVersionFor(rc)).To(o.BeEquivalentTo(1))
 

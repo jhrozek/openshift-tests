@@ -45,7 +45,7 @@ var _ = g.Describe("[Conformance][Area:Networking][Feature:Router]", func() {
 	)
 
 	g.BeforeEach(func() {
-		infra, err := oc.AdminConfigClient().ConfigV1().Infrastructures().Get("cluster", metav1.GetOptions{})
+		infra, err := oc.AdminConfigClient().ConfigV1().Infrastructures().Get(context.Background(), "cluster", metav1.GetOptions{})
 		o.Expect(err).NotTo(o.HaveOccurred())
 		proxyProtocol = infra.Status.PlatformStatus.Type == configv1.AWSPlatformType
 
@@ -237,7 +237,7 @@ var _ = g.Describe("[Conformance][Area:Networking][Feature:Router]", func() {
 				g.Skip("prometheus not found on this cluster")
 			}
 
-			execPod := exutil.CreateUbiExecPodOrFail(oc.AdminKubeClient(), ns, "execpod", nil)
+			execPod := exutil.CreateCentosExecPodOrFail(oc.AdminKubeClient(), ns, "execpod", nil)
 			defer func() {
 				oc.AdminKubeClient().CoreV1().Pods(ns).Delete(context.Background(), execPod.Name, *metav1.NewDeleteOptions(1))
 			}()

@@ -85,7 +85,7 @@ var _ = g.Describe("[Feature:OpenShiftAuthorization] authorization", func() {
 					{Resource: "imagestreams/secrets"}:     true,
 				}
 
-				readerRole, err := rbacv1client.NewForConfigOrDie(clusterAdminClientConfig).ClusterRoles().Get("cluster-reader", metav1.GetOptions{})
+				readerRole, err := rbacv1client.NewForConfigOrDie(clusterAdminClientConfig).ClusterRoles().Get(context.Background(), "cluster-reader", metav1.GetOptions{})
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
