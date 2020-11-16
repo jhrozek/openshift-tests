@@ -63,6 +63,7 @@ require (
 	github.com/openshift/client-go v0.0.0-20201020082437-7737f16e53fc
 	github.com/openshift/library-go v0.0.0-20201102091359-c4fa0f5b3a08
 	github.com/pborman/uuid v1.2.0
+	github.com/pquerna/cachecontrol v0.0.0-20200921180117-858c6e7e6b7e // indirect
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7 // indirect
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
@@ -73,7 +74,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/objx v0.2.0
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.6.1
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/willf/bitset v1.1.11 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
@@ -107,17 +108,20 @@ replace (
 	bitbucket.org/ww/goautoneg => github.com/munnerz/goautoneg v0.0.0-20120707110453-a547fc61f48d
 
 	github.com/google/cadvisor => github.com/google/cadvisor v0.37.0
-	github.com/karrick/godirwalk => github.com/karrick/godirwalk v1.7.5
 
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.4.1
 
 	github.com/googleapis/gnostic/OpenAPIv2 => github.com/googleapis/gnostic/openapiv2 v0.4.1
 	github.com/jteeuwen/go-bindata => github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
+	github.com/karrick/godirwalk => github.com/karrick/godirwalk v1.7.5
 	github.com/onsi/ginkgo => github.com/openshift/onsi-ginkgo v1.4.1-0.20190902091932-d0603c19fe78
+	go.etcd.io/etcd => go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738 // 3cf2f69b5738 is the SHA for git tag v3.4.3
+
+	google.golang.org/grpc => google.golang.org/grpc v1.26.0
 	k8s.io/api => k8s.io/api v0.19.2
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.19.2
 	k8s.io/apimachinery => k8s.io/apimachinery v0.19.2
-	k8s.io/apiserver => k8s.io/apiserver v0.19.2
+	k8s.io/apiserver => github.com/openshift/kubernetes/staging/src/k8s.io/apiserver v0.0.0-20201103091224-6bd0f342e442
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.19.2
 	k8s.io/client-go => k8s.io/client-go v0.19.2
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.19.2
@@ -134,9 +138,7 @@ replace (
 	k8s.io/kubelet => k8s.io/kubelet v0.19.2
 	k8s.io/kubernetes => github.com/openshift/kubernetes v1.20.0-alpha.0.0.20201103091224-6bd0f342e442
 
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.19.2
+	k8s.io/legacy-cloud-providers => github.com/openshift/kubernetes/staging/src/k8s.io/legacy-cloud-providers v0.0.0-20201103091224-6bd0f342e442
 	k8s.io/metrics => k8s.io/metrics v0.19.2
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.19.2
-
-	google.golang.org/grpc => google.golang.org/grpc v1.26.0
 )

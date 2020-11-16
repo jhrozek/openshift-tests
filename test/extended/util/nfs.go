@@ -1,12 +1,14 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"k8s.io/kubernetes/test/e2e/framework/volume"
 
 	kapiv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	e2e "k8s.io/kubernetes/test/e2e/framework"
@@ -27,9 +29,9 @@ func SetupK8SNFSServerAndVolume(oc *CLI, count int) (*kapiv1.Pod, []*kapiv1.Pers
 		Prefix:    "nfs",
 		// this image is an extension of k8s.gcr.io/volume-nfs:0.8 that adds
 		// additional nfs mounts to allow for openshift extended tests with
-		// replicas and shared state (mongo, postgresql, mysql, etc.); defined
-		// in repo https://github.com/gmontero/nfs-server
-		ServerImage:   "docker.io/gmontero/nfs-server:latest",
+		// replicas and shared state (formerly mongo, postgresql, mysql, etc., now only jenkins); defined
+		// in repo https://github.com/redhat-developer/nfs-server
+		ServerImage:   "quay.io/redhat-developer/nfs-server:latest",
 		ServerPorts:   []int{2049},
 		ServerVolumes: map[string]string{"": "/exports"},
 	}
@@ -62,7 +64,7 @@ func SetupK8SNFSServerAndVolume(oc *CLI, count int) (*kapiv1.Pod, []*kapiv1.Pers
 			},
 		}
 		pvTemplate := e2epv.MakePersistentVolume(pvConfig)
-		pv, err := oc.AdminKubeClient().CoreV1().PersistentVolumes().Create(pvTemplate)
+		pv, err := oc.AdminKubeClient().CoreV1().PersistentVolumes().Create(context.Background(), pvTemplate, metav1.CreateOptions{})
 		if err != nil {
 			e2e.Logf("error creating persistent volume %#v", err)
 		}

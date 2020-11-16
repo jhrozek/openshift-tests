@@ -1,6 +1,7 @@
 package controller_manager
 
 import (
+	"context"
 	"reflect"
 	"time"
 
@@ -135,7 +136,7 @@ var _ = g.Describe("[Feature:OpenShiftControllerManager]", func() {
 			},
 		}
 		for _, tc := range ttApps {
-			appsDC, err := appsClient.AppsV1().DeploymentConfigs(namespace).Create(tc.obj)
+			appsDC, err := appsClient.AppsV1().DeploymentConfigs(namespace).Create(context.Background(), tc.obj, metav1.CreateOptions{})
 			if err != nil {
 				t.Fatalf("Failed to create DC: %v", err)
 			}

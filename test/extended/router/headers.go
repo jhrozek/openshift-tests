@@ -2,6 +2,7 @@ package router
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -28,11 +29,14 @@ var _ = g.Describe("[Conformance][Area:Networking][Feature:Router]", func() {
 		routerIP  string
 		metricsIP string
 		infra     *configv1.Infrastructure
+		network   *configv1.Network
 	)
 
 	g.BeforeEach(func() {
 		var err error
-		infra, err = oc.AdminConfigClient().ConfigV1().Infrastructures().Get("cluster", metav1.GetOptions{})
+		infra, err = oc.AdminConfigClient().ConfigV1().Infrastructures().Get(context.Background(), "cluster", metav1.GetOptions{})
+		o.Expect(err).NotTo(o.HaveOccurred())
+		network, err = oc.AdminConfigClient().ConfigV1().Networks().Get(context.Background(), "cluster", metav1.GetOptions{})
 		o.Expect(err).NotTo(o.HaveOccurred())
 		routerIP, err = exutil.WaitForRouterServiceIP(oc)
 		o.Expect(err).NotTo(o.HaveOccurred())
@@ -59,7 +63,9 @@ var _ = g.Describe("[Conformance][Area:Networking][Feature:Router]", func() {
 
 			ns := oc.KubeFramework().Namespace.Name
 			execPodName := exutil.CreateExecPodOrFail(oc.AdminKubeClient().CoreV1(), ns, "execpod")
-			defer func() { oc.AdminKubeClient().CoreV1().Pods(ns).Delete(execPodName, metav1.NewDeleteOptions(1)) }()
+			defer func() {
+				oc.AdminKubeClient().CoreV1().Pods(ns).Delete(context.Background(), execPodName, *metav1.NewDeleteOptions(1))
+			}()
 
 			g.By(fmt.Sprintf("creating an http echo server from a config file %q", configPath))
 
@@ -68,7 +74,7 @@ var _ = g.Describe("[Conformance][Area:Networking][Feature:Router]", func() {
 
 			var clientIP string
 			err = wait.Poll(time.Second, changeTimeoutSeconds*time.Second, func() (bool, error) {
-				pod, err := oc.KubeFramework().ClientSet.CoreV1().Pods(ns).Get("execpod", metav1.GetOptions{})
+				pod, err := oc.KubeFramework().ClientSet.CoreV1().Pods(ns).Get(context.Background(), "execpod", metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}

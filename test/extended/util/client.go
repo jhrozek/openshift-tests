@@ -248,11 +248,11 @@ func (c *CLI) SetupProject() {
 		lw := &cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				options.FieldSelector = fieldSelector
-				return c.KubeClient().RbacV1().RoleBindings(newNamespace).List(options)
+				return c.KubeClient().RbacV1().RoleBindings(newNamespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.FieldSelector = fieldSelector
-				return c.KubeClient().RbacV1().RoleBindings(newNamespace).Watch(options)
+				return c.KubeClient().RbacV1().RoleBindings(newNamespace).Watch(context.Background(), options)
 			},
 		}
 
@@ -280,12 +280,12 @@ func (c *CLI) SetupProject() {
 func (c *CLI) CreateProject() string {
 	newNamespace := names.SimpleNameGenerator.GenerateName(fmt.Sprintf("e2e-test-%s-", c.kubeFramework.BaseName))
 	e2e.Logf("Creating project %q", newNamespace)
-	_, err := c.ProjectClient().ProjectV1().ProjectRequests().Create(&projectv1.ProjectRequest{
+	_, err := c.ProjectClient().ProjectV1().ProjectRequests().Create(context.Background(), &projectv1.ProjectRequest{
 		ObjectMeta: metav1.ObjectMeta{Name: newNamespace},
-	})
-	o.Expect(err).NotTo(o.HaveOccurred())
+	}, metav1.CreateOptions{})
+o.Expect(err).NotTo(o.HaveOccurred())
 
-	actualNs, err := c.AdminKubeClient().CoreV1().Namespaces().Get(newNamespace, metav1.GetOptions{})
+	actualNs, err := c.AdminKubeClient().CoreV1().Namespaces().Get(context.Background(), newNamespace, metav1.GetOptions{})
 	o.Expect(err).NotTo(o.HaveOccurred())
 	c.kubeFramework.AddNamespacesToDelete(actualNs)
 
@@ -314,7 +314,7 @@ func (c *CLI) TeardownProject() {
 
 	dynamicClient := c.AdminDynamicClient()
 	for _, resource := range c.resourcesToDelete {
-		err := dynamicClient.Resource(resource.Resource).Namespace(resource.Namespace).Delete(resource.Name, nil)
+		err := dynamicClient.Resource(resource.Resource).Namespace(resource.Namespace).Delete(context.Background(), resource.Name, metav1.DeleteOptions{})
 		e2e.Logf("Deleted %v, err: %v", resource, err)
 	}
 }
@@ -675,6 +675,7 @@ func (c *CLI) CreateUser(prefix string) *userv1.User {
 }
 
 func (c *CLI) GetClientConfigForUser(username string) *rest.Config {
+	ctx := context.Background()
 	userClient := c.AdminUserClient()
 
 	user, err := userClient.UserV1().Users().Get(ctx, username, metav1.GetOptions{})
@@ -695,6 +696,7 @@ func (c *CLI) GetClientConfigForUser(username string) *rest.Config {
 	oauthClientName := "e2e-client-" + c.Namespace()
 	oauthClientObj, err := oauthClient.OauthV1().OAuthClients().Create(ctx, &oauthv1.OAuthClient{
 		ObjectMeta:  metav1.ObjectMeta{Name: oauthClientName},
+	}, metav1.CreateOptions{})
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		FatalErr(err)
 	}

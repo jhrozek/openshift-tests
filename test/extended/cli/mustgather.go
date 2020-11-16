@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -32,7 +33,7 @@ var _ = g.Describe("[cli] oc adm must-gather", func() {
 		// makes some tokens that should not show in the audit logs
 		const tokenName = "must-gather-audit-logs-token-plus-some-padding-here-to-make-the-limit"
 		oauthClient := oauthv1client.NewForConfigOrDie(oc.AdminConfig())
-		_, err1 := oauthClient.OAuthAccessTokens().Create(&oauthv1.OAuthAccessToken{
+		_, err1 := oauthClient.OAuthAccessTokens().Create(context.Background(), &oauthv1.OAuthAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: tokenName,
 			},
@@ -44,7 +45,7 @@ var _ = g.Describe("[cli] oc adm must-gather", func() {
 			UserUID:     "1",
 		})
 		o.Expect(err1).ToNot(o.HaveOccurred())
-		_, err2 := oauthClient.OAuthAuthorizeTokens().Create(&oauthv1.OAuthAuthorizeToken{
+		_, err2 := oauthClient.OAuthAuthorizeTokens().Create(context.Background(), &oauthv1.OAuthAuthorizeToken{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: tokenName,
 			},
@@ -187,8 +188,8 @@ var _ = g.Describe("[cli] oc adm must-gather", func() {
 
 func getPluginOutputDir(oc *util.CLI, tempDir string) string {
 	imageClient := versioned.NewForConfigOrDie(oc.AdminConfig())
-	stream, err := imageClient.ImageV1().ImageStreams("openshift").Get("must-gather", metav1.GetOptions{})
-	o.Expect(err).ToNot(o.HaveOccurred())
+	stream, err := imageClient.ImageV1().ImageStreams("openshift").Get(context.Background(), "must-gather", metav1.GetOptions{})
+	o.Expect(err).NotTo(o.HaveOccurred())
 	imageId, ok := imageutil.ResolveLatestTaggedImage(stream, "latest")
 	o.Expect(ok).To(o.BeTrue())
 	pluginOutputDir := path.Join(tempDir, regexp.MustCompile("[^A-Za-z0-9]+").ReplaceAllString(imageId, "-"))

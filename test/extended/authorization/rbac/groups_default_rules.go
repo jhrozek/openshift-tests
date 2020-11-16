@@ -180,7 +180,7 @@ var _ = g.Describe("[Feature:OpenShiftAuthorization] The default cluster RBAC po
 			exutil.FatalErr("failed to sync RBAC cache")
 		}
 
-		namespaces, err := oc.AdminKubeClient().CoreV1().Namespaces().List(metav1.ListOptions{})
+		namespaces, err := oc.AdminKubeClient().CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			exutil.FatalErr(err)
 		}
