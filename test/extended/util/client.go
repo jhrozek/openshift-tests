@@ -696,6 +696,7 @@ func (c *CLI) GetClientConfigForUser(username string) *rest.Config {
 	oauthClientName := "e2e-client-" + c.Namespace()
 	oauthClientObj, err := oauthClient.OauthV1().OAuthClients().Create(ctx, &oauthv1.OAuthClient{
 		ObjectMeta:  metav1.ObjectMeta{Name: oauthClientName},
+		GrantMethod: oauthv1.GrantHandlerAuto,
 	}, metav1.CreateOptions{})
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		FatalErr(err)
